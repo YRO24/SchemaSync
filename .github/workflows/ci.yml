@@ -1,3 +1,4 @@
+
 name: SchemaSync Backend CI
 
 on:
@@ -8,12 +9,20 @@ on:
   pull_request:
     branches:
       - main
+  workflow_dispatch:
+    inputs:
+      simulate_migration_failure:
+        description: "Simulate a failed migration to verify release blocking"
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 jobs:
   backend-build:
+    name: Backend Build
     runs-on: ubuntu-latest
 
     steps:
@@ -33,3 +42,121 @@ jobs:
 
       - name: Build backend Docker image
         run: docker build -t schemasync-server:ci ./server
+
+  backend-test:
+    name: Backend API Tests
+    runs-on: ubuntu-latest
+    needs: backend-build
+
+    services:
+      mongodb:
+        image: mongo:8
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand(\"ping\").ok'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      MONGO_URI: mongodb://127.0.0.1:27017/schemasync_test
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: server
+        run: npm ci
+
+      - name: Apply V2 migration to test database
+        working-directory: server
+        run: node migrations/v2_add_email.js
+
+      - name: Start backend API
+        working-directory: server
+        run: |
+          nohup node index.js > server.log 2>&1 &
+          for i in {1..30}; do
+            if curl --silent --fail http://localhost:5000/health; then
+              echo "Backend is healthy"
+              exit 0
+            fi
+            sleep 2
+          done
+          cat server.log
+          echo "Backend did not become healthy"
+          exit 1
+
+      - name: Run API tests
+        working-directory: server
+        run: npm test
+
+  migration-validation:
+    name: Migration Validation
+    runs-on: ubuntu-latest
+
+    services:
+      mongodb:
+        image: mongo:8
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand(\"ping\").ok'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      MONGO_URI: mongodb://127.0.0.1:27017/schemasync_migration_test
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: server
+        run: npm ci
+
+      - name: Run V2 migration
+        working-directory: server
+        run: node migrations/v2_add_email.js
+
+      - name: Verify migration is idempotent
+        working-directory: server
+        run: |
+          node migrations/v2_add_email.js
+          node -e "const mongoose = require('mongoose'); const Migration = require('./src/models/Migration'); (async () => { await mongoose.connect(process.env.MONGO_URI); const count = await Migration.countDocuments({ name: 'v2_add_email' }); await mongoose.disconnect(); if (count !== 1) { console.error('Expected exactly one migration record, found:', count); process.exit(1); } console.log('Migration tracking verified'); })().catch(error => { console.error(error); process.exit(1); });"
+
+      - name: Simulate a migration failure when requested
+        if: ${{ inputs.simulate_migration_failure }}
+        working-directory: server
+        run: node migrations/v3_bad_update.js
+
+  release-gate:
+    name: Release Gate
+    runs-on: ubuntu-latest
+    needs:
+      - backend-build
+      - backend-test
+      - migration-validation
+    if: ${{ success() }}
+
+    steps:
+      - name: Confirm release checks passed
+        run: echo "Release gate passed. Build, API tests, and migration validation succeeded."

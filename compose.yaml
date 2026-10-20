@@ -27,6 +27,14 @@ services:
     depends_on:
       - server
 
+  client:
+    build:
+      context: ./client
+    ports:
+      - "8080:80"
+    depends_on:
+      - server
+    restart: unless-stopped
 
 volumes:
   mongo_data:

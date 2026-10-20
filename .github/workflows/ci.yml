@@ -43,6 +43,10 @@ jobs:
       - name: Build backend Docker image
         run: docker build -t schemasync-server:ci ./server
 
+      - name: Build frontend Docker image
+        run: docker build -t schemasync-client:ci ./client
+
+
   backend-test:
     name: Backend API Tests
     runs-on: ubuntu-latest

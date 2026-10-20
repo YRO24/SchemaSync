@@ -1,0 +1,57 @@
+﻿name: Actual Migration Failure Gate Test
+
+on:
+  push:
+    branches:
+      - "feature/person2-infrastructure"
+
+permissions:
+  contents: read
+
+jobs:
+  actual-migration-failure:
+    name: Actual V3 Migration Failure
+    runs-on: ubuntu-latest
+
+    services:
+      mongodb:
+        image: mongo:8
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand(\"ping\").ok'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      MONGO_URI: mongodb://127.0.0.1:27017/schemasync_v3_failure_test
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: server
+        run: npm ci
+
+      - name: Run actual V3 migration failure
+        working-directory: server
+        run: node migrations/v3_bad_update.js
+
+  release-gate:
+    name: Release Gate
+    runs-on: ubuntu-latest
+    needs: actual-migration-failure
+    if: ${{ success() }}
+
+    steps:
+      - name: Confirm release gate should not run
+        run: echo "This step should never run after a failed migration."

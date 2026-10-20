@@ -57,8 +57,8 @@ jobs:
           --health-cmd "mongosh --quiet --eval 'quit(db.adminCommand({ ping: 1 }).ok ? 0 : 1)'"
           --health-interval 10s
           --health-timeout 10s
-          --health-retries 10
-          --health-start-period 30s
+          --health-retries 12
+          --health-start-period 40s
 
     env:
       MONGO_URI: mongodb://127.0.0.1:27017/schemasync_test
@@ -114,8 +114,8 @@ jobs:
           --health-cmd "mongosh --quiet --eval 'quit(db.adminCommand({ ping: 1 }).ok ? 0 : 1)'"
           --health-interval 10s
           --health-timeout 10s
-          --health-retries 10
-          --health-start-period 30s
+          --health-retries 12
+          --health-start-period 40s
 
     env:
       MONGO_URI: mongodb://127.0.0.1:27017/schemasync_migration_test

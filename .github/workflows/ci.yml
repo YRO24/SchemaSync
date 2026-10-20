@@ -148,6 +148,7 @@ jobs:
       - name: Install backend dependencies
         working-directory: server
         run: npm ci
+
       - name: Wait for MongoDB
         working-directory: server
         run: |
@@ -156,7 +157,7 @@ jobs:
           const uri = process.env.MONGO_URI;
           const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
           (async () => {
-            for (let attempt = 1; attempt <= 30; attempt++) {
+            for (let attempt = 1; attempt <= 45; attempt++) {
               try {
                 await mongoose.connect(uri, { serverSelectionTimeoutMS: 2000 });
                 await mongoose.connection.db.admin().ping();
@@ -164,7 +165,7 @@ jobs:
                 await mongoose.disconnect();
                 process.exit(0);
               } catch (error) {
-                console.log(`MongoDB not ready (attempt ${attempt}/30): ${error.message}`);
+                console.log(`Attempt ${attempt}/45: ${error.message}`);
                 await mongoose.disconnect().catch(() => {});
                 await wait(2000);
               }
@@ -173,6 +174,17 @@ jobs:
             process.exit(1);
           })();
           '
+
+      - name: Diagnose MongoDB if migration validation fails
+        if: ${{ failure() }}
+        run: |
+          echo "=== Running containers ==="
+          docker ps -a
+          echo "=== MongoDB container logs ==="
+          for id in $(docker ps -aq --filter "ancestor=mongo:8"); do
+            docker logs "$id" 2>&1 || true
+          done
+
 
       - name: Run V2 migration
         working-directory: server

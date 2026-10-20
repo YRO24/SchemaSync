@@ -185,7 +185,7 @@ jobs:
           echo "=== Running containers ==="
           docker ps -a
           echo "=== MongoDB container logs ==="
-          for id in $(docker ps -aq --filter "ancestor=mongo:8"); do
+          for id in $(docker ps -aq --filter "ancestor=mongo:8.0.4"); do
             docker logs "$id" 2>&1 || true
           done
 

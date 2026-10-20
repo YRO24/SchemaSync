@@ -1,26 +1,58 @@
-// server/index.js
-require('dotenv').config();
-const express = require('express');
-const connectDB = require('./src/config/db');
-const studentRoutes = require('./src/routes/studentRoutes');
+
+require("dotenv").config();
+
+const express = require("express");
+const connectDB = require("./src/config/db");
+const studentRoutes = require("./src/routes/studentRoutes");
+const { register, httpRequests } = require("./src/config/metrics");
 
 const app = express();
+const PORT = process.env.PORT || 5000;
 
-// 1. Connect to Database
-connectDB();
-
-// 2. Parse incoming JSON requests
 app.use(express.json());
 
-// 3. Application health endpoint (Required for Partner 2's Docker checks)
-app.get('/health', (req, res) => {
-    res.status(200).json({ status: 'UP' });
+app.use((req, res, next) => {
+  res.on("finish", () => {
+    const route = req.route?.path
+      ? `${req.baseUrl || ""}${req.route.path}`
+      : "unmatched";
+
+    httpRequests.inc({
+      method: req.method,
+      route,
+      status: String(res.statusCode),
+    });
+  });
+
+  next();
 });
 
-// 4. Mount the student CRUD routes
-app.use('/api/students', studentRoutes);
-
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "UP" });
 });
+
+app.get("/metrics", async (req, res, next) => {
+  try {
+    res.set("Content-Type", register.contentType);
+    res.end(await register.metrics());
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.use("/api/students", studentRoutes);
+
+async function startServer() {
+  try {
+    await connectDB();
+
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error("Failed to start server:", error.message);
+    process.exit(1);
+  }
+}
+
+startServer();

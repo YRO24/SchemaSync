@@ -1,4 +1,4 @@
-// server/migrations/v3_bad_update.js
+﻿// server/migrations/v3_bad_update.js
 require('dotenv').config();
 const mongoose = require('mongoose');
 const connectDB = require('../src/config/db');
@@ -19,7 +19,7 @@ const runBadMigration = async () => {
   } catch (error) {
     console.error(`Intentional migration failure successfully caught: ${error.message}`);
     // Exit code 1 is CRITICAL: This is what tells GitHub Actions to block the deployment
-    process.exit(1); 
+    process.exit(1);
   }
 };
 

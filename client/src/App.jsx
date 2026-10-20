@@ -6,7 +6,7 @@ function App() {
 
   // 1. Fetch data from Express API when the app loads
   useEffect(() => {
-    fetch('http://localhost:5000/api/students')
+    fetch('/api/students')
       .then(res => res.json())
       .then(data => setStudents(data))
       .catch(err => console.error("Error fetching data:", err));
@@ -15,7 +15,7 @@ function App() {
   // 2. Handle sending new data to Express
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const res = await fetch('http://localhost:5000/api/students', {
+    const res = await fetch('/api/students', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(formData)

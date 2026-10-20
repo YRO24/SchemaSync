@@ -1,4 +1,4 @@
-// server/migrations/v2_add_email.js
+﻿// server/migrations/v2_add_email.js
 require('dotenv').config();
 const mongoose = require('mongoose');
 const connectDB = require('../src/config/db');
@@ -26,7 +26,7 @@ const runMigration = async () => {
     // 3. Log the successful migration in the tracking collection
     await Migration.create({ name: migrationName });
     console.log(`Migration successful: Updated ${result.modifiedCount} records.`);
-    
+
     process.exit(0); // Exit code 0 means success (Green check in CI pipeline)
   } catch (error) {
     console.error(`Migration failed: ${error.message}`);
